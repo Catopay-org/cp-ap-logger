@@ -1,0 +1,11 @@
+node_modules
+*lock
+.idea
+.env
+dist
+update.script.txt
+.env.*
+.env
+
+pnpm-lock.yaml
+src/modifyDBScript.ts

@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGO_URI")
+}
+
+
+
+
+
+enum ECurrency {
+  USD
+  BDT
+}
+
+enum ETxnEventLogType {
+  DEPOSIT
+  WITHDRAWAL
+  PAYMENT
+  REFUND
+}
+
+enum ETxnEventLogsEventType {
+  PAYMENT_CREATED
+  PAYMENT_SUBMITTED
+  PAYMENT_CONFIRMED
+  PAYMENT_CANCELLED
+  PAYMENT_REJECTED
+  PAYMENT_FAILED
+  PAYMENT_CALLBACK_SENT
+  PAYMENT_CALLBACK_FAILED
+  WITHDRAWAL_CREATED
+  WITHDRAWAL_SUBMITTED
+  WITHDRAWAL_CONFIRMED
+  WITHDRAWAL_CANCELLED
+  WITHDRAWAL_REJECTED
+  WITHDRAWAL_FAILED
+  REFUND_CREATED
+  REFUND_ACCEPTED
+  REFUND_SUBMITTED
+  REFUND_CONFIRMED
+  REFUND_CANCELLED
+  REFUND_REJECTED
+  REFUND_FAILED
+  REFUND_CALLBACK_SENT
+  REFUND_CALLBACK_FAILED
+  REFUND_CANCELLATION_REQUESTED
+}
+
+enum ESubEventType {
+  CHARGED_FEES
+  HOLD_AMOUNT
+  STATUS_UPDATE
+  SETTLED_COMMISSION
+  SETTLED_HOLD_AMOUNT
+  RELEASE_AMOUNT
+  ROLLBACK_AMOUNT
+}
+
+enum EEventSecurityType {
+  BEARER_TOKEN
+  API_KEY
+  NONE
+}
+
+enum ESystemRole {
+  PLATFORM
+  RECEIVER
+  MODERATOR
+  ADMIN
+  SYSTEM
+}
+
+model TxnEventLog {
+  id                String                 @id @default(auto()) @map("_id") @db.ObjectId
+  amount            Float
+  currency          ECurrency
+  transactionType   ETxnEventLogType
+  referenceId       String
+  performerUID      String?
+  performerRole     ESystemRole
+  consumerRole      ESystemRole
+  description       String
+  // requestHeaders    Json?
+  requestRawHeaders String[]
+  requestBody       Json
+  response          Json
+  eventType         ETxnEventLogsEventType
+  subEventType      ESubEventType?
+  securityType      EEventSecurityType
+  metadata          Json
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+}
