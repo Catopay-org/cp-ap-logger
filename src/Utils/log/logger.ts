@@ -1,11 +1,5 @@
-import Config from "@/Config";
 import { Request } from "express";
-import { Logtail } from '@logtail/node';
-import { LogtailTransport } from '@logtail/winston';
 import winston from 'winston';
-
-const source_token = Config.better_stack_source_token
-const logtail = new Logtail(source_token || ""); // Logtail instance
 
 
 
@@ -20,8 +14,7 @@ export const globalLoggerAssigner = (type: string, level: string) => {
         level: level || 'info',
         format: winston.format.json(),
         transports: [
-            new LogtailTransport(logtail),
-            // new winston.transports.Console()
+            new winston.transports.Console()
         ],
         defaultMeta: {
             service: `${type}-service`,

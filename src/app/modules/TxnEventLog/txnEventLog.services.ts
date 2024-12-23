@@ -1,7 +1,7 @@
 import Config from "@/Config";
 import { calculatePagination, manageSorting } from "@/Utils/helper/queryOptimize";
 import { IQueryItems } from "@/Utils/types/query.type";
-import { ERole, ETxnEventLogsEventType, Prisma, PrismaClient, TxnEventLog } from "@prisma/client";
+import { ERole, Prisma, PrismaClient, TxnEventLog } from "@prisma/client";
 import { TProcessTxnEventLogPayload } from "./txnEventLog.types";
 import { TxnEventLogUtils } from "./txnEventLog.utils";
 

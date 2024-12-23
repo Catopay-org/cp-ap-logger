@@ -4,8 +4,8 @@ import {z} from "zod";
 import jwt from "jsonwebtoken";
 import config from "@/Config";
 import {CustomJwtPayload} from "@/Utils/types/jwtHelper.type";
-import {AuthServices} from "@/App/modules/Auth/auth.services";
 import CustomError from "@/Utils/errors/customError.class";
+import { findAuthDataByUid } from "@/app/modules/auth/auth.services";
 
 const checkValidateAccess = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const token = z.string({
@@ -14,7 +14,7 @@ const checkValidateAccess = catchAsync(async (req: Request, res: Response, next:
 
     const {uid, role, email} = jwt.verify(token, config.jwt.refreshToken.secret as string) as CustomJwtPayload
 
-    const authData = await AuthServices.findAuthDataByUid(uid)
+    const authData = await findAuthDataByUid(uid)
 
     if (!authData) {
         throw new CustomError('Access permission denied. ', 401)

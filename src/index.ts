@@ -14,15 +14,6 @@ const logger_1 = require("./Utils/log/logger");
 
 const server = http.createServer(app)
 
-//configure email client
-if (Config.mail.sendgrid_api_key) {
-    sgMail.setApiKey(Config.mail.sendgrid_api_key);
-}
-
-
-
-
-
 const { port } = Config
 
 const main = async () => {

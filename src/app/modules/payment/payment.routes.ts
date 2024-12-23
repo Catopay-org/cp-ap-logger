@@ -2,7 +2,7 @@ import { Router } from "express";
 
 const paymentRoutes = Router()
 paymentRoutes
-    .use('/payment', (req, res) => {
+    .get('/all', (req, res) => {
         res.send('Payment Router')
     })
 

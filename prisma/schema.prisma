@@ -7,9 +7,395 @@ datasource db {
   url      = env("MONGO_URI")
 }
 
+enum ERole {
+  ADMIN
+  PLATFORM
+  RECEIVER
+  MODERATOR
+}
 
+enum EAuthStatus {
+  PENDING
+  ACTIVE
+  VERIFIED
+  BLOCKED
+}
 
+enum EDocumentStatus {
+  ACCEPT
+  REJECT
+  PENDING
+}
 
+enum EDocumentType {
+  NID
+  PASSPORT
+  BANK_STATEMENT
+  UTILITY_BILL
+}
+
+enum EProviderType {
+  MFS
+  BANK
+  CARD
+  CRYPTO
+  OTHERS
+}
+
+enum PaymentMethodStatus {
+  ACTIVE
+  HOLD
+  INACTIVE
+}
+
+enum TransactionStatus {
+  Pending
+  InProgress
+  WaitingForConfirmation
+  Completed
+  Failed
+  Cancelled
+  CancellationRequest //need to be removed
+  CancellationRequested
+  Hold
+  Reversed
+  Settled
+  Disputed
+  Expired
+  Authorized
+}
+
+enum TransactionType {
+  Transfer
+  Deposit
+  Withdrawal
+  Payment
+  Refund
+  Fee
+  Commission
+  Reversal
+  Adjustment
+}
+
+enum TransactionActionType {
+  CREDIT
+  DEBIT
+}
+
+enum WalletStatus {
+  ACTIVE
+  INACTIVE
+  SUSPEND
+}
+
+model Auth {
+  id                  String      @id @default(auto()) @map("_id") @db.ObjectId
+  name                String
+  email               String      @unique
+  phone               String      @unique
+  role                ERole       @default(RECEIVER)
+  password            String
+  isTwoFactorEnabled  Boolean     @default(false)
+  twoFactorSecret     String      @default("")
+  uid                 String      @unique @db.ObjectId
+  user                User        @relation(fields: [uid], references: [id], onDelete: Cascade)
+  status              EAuthStatus @default(PENDING)
+  lastLogin           DateTime?
+  failedLoginAttempts Int         @default(0)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  documents           Document[]
+}
+
+type TDocumentImageData {
+  label  String
+  imgUrl String
+}
+
+model Document {
+  id           String               @id @default(auto()) @map("_id") @db.ObjectId
+  authId       String               @db.ObjectId
+  authData     Auth                 @relation(fields: [authId], references: [id], onDelete: Cascade)
+  status       EDocumentStatus      @default(PENDING)
+  documentType EDocumentType
+  images       TDocumentImageData[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@index([authId])
+}
+
+model User {
+  id                         String                       @id @default(auto()) @map("_id") @db.ObjectId
+  name                       String
+  profilePicture             String?                      @default("")
+  contactNumber              String?                      @default("")
+  walletId                   String                       @unique @db.ObjectId
+  wallet                     Wallet                       @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  referredBy                 String?                      @default("")
+  ownReferralCode            String                       @unique
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  auth                       Auth?
+  userWallet                 UserWallet?
+  transactionHistory         TransactionAction[]
+  transactionAsSender        Transaction[]                @relation(name: "asSender")
+  transactionAsReceiver      Transaction[]                @relation(name: "asReceiver")
+  userAvailablePaymentMethod UserAvailablePaymentMethod[]
+  supportTickets             SupportTicket[]
+  supportTicketMessages      SupportTicketMessages[]
+  developmentInfo            DevelopmentInfo?
+  blogs                      Blog[]
+  withdrawRequest            WithdrawRequest[]            @relation(name: "receiverAccount")
+  adminAction                WithdrawRequest[]            @relation(name: "adminAccount")
+  refundRequest_paidUser     RefundRequest[]              @relation(name: "paidUser")
+  refundRequest_createUser   RefundRequest[]              @relation(name: "createUser")
+  refundRequest_approveUser  RefundRequest[]              @relation(name: "approveUser")
+  transactionAsPlatformOwner Transaction[]                @relation(name: "platformOwner")
+}
+
+model DevelopmentInfo {
+  id                                         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                                     String   @unique @db.ObjectId
+  user                                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKey                                     String?
+  isKeyActive                                Boolean  @default(false)
+  gatewayFeesInPercentForPlatform            Float    @default(8)
+  refundProcessFeesInPercentForPlatform      Float    @default(5)
+  commissionRateInPercentForPaymentProcessor Float    @default(3)
+  commissionRateInPercentForRefundProcessor  Float    @default(1)
+  createdAt                                  DateTime @default(now())
+  updatedAt                                  DateTime @updatedAt
+}
+
+model PlatformPaymentMethod {
+  id                          String                       @id @default(auto()) @map("_id") @db.ObjectId
+  providerName                String
+  providerType                EProviderType
+  codeName                    String                       @unique
+  icon                        String?                      @default("")
+  status                      PaymentMethodStatus          @default(ACTIVE)
+  receivingChanelNumberOrName String
+  exchangeRate                Float                        @default(1)
+  autoConfirmationFromApp     Boolean                      @default(false)
+  allowWithdrawal             Boolean                      @default(false)
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  userAvailablePaymentMethod  UserAvailablePaymentMethod[]
+  RefundRequest               RefundRequest[]
+  WithdrawRequest             WithdrawRequest[]
+}
+
+enum EWalletType {
+  ADMIN_WALLET
+  MODERATOR_WALLET
+  RECEIVER_WALLET
+  PLATFORM_WALLET
+}
+
+model Wallet {
+  id                            String       @id @default(auto()) @map("_id") @db.ObjectId
+  secretKey                     String?      @default("")
+  isSecretKeyActive             Boolean      @default(false)
+  balance                       Float        @default(0)
+  holdAmount                    Float        @default(0)
+  earningAvailableBalance       Float        @default(0)
+  lifetimeEarnedBalance         Float        @default(0)
+  withdrawalPendingAmount       Float        @default(0)
+  refundPendingAmount           Float        @default(0)
+  isAllowedForCryptoTransaction Boolean      @default(false)
+  status                        WalletStatus @default(INACTIVE)
+  type                          EWalletType  @default(RECEIVER_WALLET)
+  createdAt                     DateTime     @default(now())
+  updatedAt                     DateTime     @updatedAt
+  user                          User?
+  userWallet                    UserWallet?
+}
+
+model UserWallet {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String @unique @db.ObjectId
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  walletId String @unique @db.ObjectId
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+}
+
+enum PaymentMethodProfileType {
+  PERSONAL_ACCOUNT
+  BUSINESS_ACCOUNT
+  AGENT_ACCOUNT
+  MERCHANT_ACCOUNT
+}
+
+model UserAvailablePaymentMethod {
+  id                       String                   @id @default(auto()) @map("_id") @db.ObjectId
+  paymentMethodId          String                   @db.ObjectId
+  paymentMethod            PlatformPaymentMethod    @relation(fields: [paymentMethodId], references: [id], onDelete: Cascade)
+  uid                      String                   @db.ObjectId
+  user                     User                     @relation(fields: [uid], references: [id], onDelete: Cascade)
+  numberOrAddress          String
+  paymentMethodProfileType PaymentMethodProfileType
+  qrCode                   String?                  @default("")
+  noteForSender            String?
+  status                   PaymentMethodStatus      @default(ACTIVE)
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  transactions             Transaction[]
+
+  @@index([uid])
+}
+
+model Transaction {
+  id                           String                      @id @default(auto()) @map("_id") @db.ObjectId
+  platformOwnerUID             String                      @db.ObjectId
+  platformOwner                User                        @relation(fields: [platformOwnerUID], references: [id], name: "platformOwner", onDelete: Cascade)
+  senderUID                    String?                     @db.ObjectId
+  sender                       User?                       @relation(fields: [senderUID], references: [id], name: "asSender", onDelete: Cascade)
+  receiverUID                  String                      @db.ObjectId
+  receiver                     User                        @relation(fields: [receiverUID], references: [id], name: "asReceiver", onDelete: Cascade)
+  amount                       Float
+  description                  String                      @default("")
+  exchangeRate                 Float                       @default(1)
+  transactionSource            String                      @default("")
+  senderTransactionId          String                      @default("")
+  paymentProof                 String?
+  paymentMethodId              String?                     @db.ObjectId
+  paymentMethod                UserAvailablePaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  paymentMethodTitle           String                      @default("")
+  paymentMethodNumberOrAddress String                      @default("")
+  status                       TransactionStatus           @default(Pending)
+  gatewayFees                  Float                       @default(0)
+  commissionEarn               Float                       @default(0)
+  transactionType              TransactionType
+  payment_url                  String                      @default("")
+  redirect_url                 String                      @default("")
+  callback_url                 String                      @default("")
+  note                         String?                     @default("")
+  createdAt                    DateTime                    @default(now())
+  updatedAt                    DateTime                    @updatedAt
+  transactionAction            TransactionAction[]
+}
+
+model TransactionAction {
+  id                String                @id @default(auto()) @map("_id") @db.ObjectId
+  transactionId     String?               @db.ObjectId
+  transaction       Transaction?          @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  description       String                @default("")
+  uid               String                @db.ObjectId
+  user              User                  @relation(fields: [uid], references: [id], onDelete: Cascade)
+  refundRequestId   String?               @db.ObjectId
+  refundRequest     RefundRequest?        @relation(fields: [refundRequestId], references: [id], onDelete: Cascade)
+  withdrawRequestId String?               @db.ObjectId
+  withdrawalRequest WithdrawRequest?      @relation(fields: [withdrawRequestId], references: [id], onDelete: Cascade)
+  amount            Float
+  type              TransactionActionType
+  oldBalance        Float
+  newBalance        Float
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum TicketPriority {
+  HIGH
+  NORMAL
+  MEDIUM
+}
+
+model SupportTicket {
+  id           String                  @id @default(auto()) @map("_id") @db.ObjectId
+  ticketNumber String                  @unique
+  creatorUid   String                  @db.ObjectId
+  creator      User                    @relation(fields: [creatorUid], references: [id])
+  title        String
+  description  String?                 @default("")
+  status       TicketStatus            @default(OPEN)
+  priority     TicketPriority          @default(NORMAL)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  messages     SupportTicketMessages[]
+}
+
+model SupportTicketMessages {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  supportTicketId String        @db.ObjectId
+  supportTicket   SupportTicket @relation(fields: [supportTicketId], references: [id], onDelete: Cascade)
+  userId          String        @db.ObjectId
+  user            User          @relation(fields: [userId], references: [id])
+  message         String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+type TBlogMeta {
+  title       String
+  description String
+  keywords    String?
+}
+
+model Blog {
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  slug        String
+  thumbnail   String
+  creatorId   String     @db.ObjectId
+  creator     User       @relation(fields: [creatorId], references: [id])
+  metaData    TBlogMeta?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model WithdrawRequest {
+  id                       String                   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                   String                   @db.ObjectId
+  user                     User                     @relation(fields: [userId], references: [id], name: "receiverAccount")
+  platformPaymentMethodId  String                   @db.ObjectId
+  platformPaymentMethod    PlatformPaymentMethod?   @relation(fields: [platformPaymentMethodId], references: [id])
+  paymentMethodProfileType PaymentMethodProfileType
+  bankNumberOrAddress      String
+  amount                   Float
+  status                   TransactionStatus
+  paymentTransactionId     String                   @default("")
+  actionBy                 String?                  @db.ObjectId
+  actionUser               User?                    @relation(fields: [actionBy], references: [id], name: "adminAccount")
+  note                     String                   @default("")
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  transactionAction        TransactionAction[]
+}
+
+model RefundRequest {
+  id                      String                   @id @default(auto()) @map("_id") @db.ObjectId
+  amount                  Float
+  processFess             Float
+  platformPaymentMethodId String                   @db.ObjectId
+  platformPaymentMethod   PlatformPaymentMethod    @relation(fields: [platformPaymentMethodId], references: [id])
+  status                  TransactionStatus        @default(Pending)
+  accountType             PaymentMethodProfileType
+  bankNumberOrAddress     String
+  createdBy               String?                  @db.ObjectId
+  createdUser             User?                    @relation(fields: [createdBy], references: [id], name: "createUser")
+  paidBy                  String?                  @db.ObjectId
+  paidUserInfo            User?                    @relation(fields: [paidBy], references: [id], name: "paidUser")
+  approvedBy              String?                  @db.ObjectId
+  approvedUser            User?                    @relation(fields: [approvedBy], references: [id], name: "approveUser")
+  paymentProofScreenShot  String[]                 @default([])
+  paymentTxnId            String                   @default("")
+  paymentUserSource       String                   @default("")
+  refundReason            String?
+  activeSession           String                   @default("")
+  callbackUrl             String                   @default("")
+  note                    String                   @default("")
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  transactionAction       TransactionAction[]
+}
 
 enum ECurrency {
   USD
@@ -22,6 +408,23 @@ enum ETxnEventLogType {
   PAYMENT
   REFUND
 }
+
+// enum ETransactionType {
+//     PAYMENT = "PAYMENT",
+//     REFUND = "REFUND",
+//     DEPOSIT = "DEPOSIT",
+//     WITHDRAWAL = "WITHDRAWAL"
+// }
+
+// enum ETransactionActions {
+//     UPDATE = "UPDATE",
+//     ACCEPTED = "ACCEPTED",
+//     SUBMITTED = "SUBMITTED",
+//     CONFIRMED = "CONFIRMED",
+//     CANCELLED = "CANCELLED",
+//     REJECTED = "REJECTED",
+//     FAILED = "FAILED"
+// }
 
 enum ETxnEventLogsEventType {
   PAYMENT_CREATED
@@ -94,4 +497,18 @@ model TxnEventLog {
   metadata          Json
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
+}
+
+model StoredMessage {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  sender          String
+  originalMessage String
+  amount          Float
+  cashOutNumber   String
+  transactionId   String   @unique
+  transactionTime String
+  currentBalance  Float
+  isConfirmed     Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

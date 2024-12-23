@@ -7,7 +7,6 @@ import { processZodValidation } from "@/Utils/validation/zod.validation";
 import { ErrorRequestHandler } from "express";
 import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { Error } from "mongoose";
-import multer from "multer";
 import { ZodError } from "zod";
 
 
@@ -41,14 +40,6 @@ const globalErrorHandler: ErrorRequestHandler = (err, req, res, next) => {
         defaultError.errorMessages = [{
             path: err.name,
             message: err.message
-        }]
-    } else if (err instanceof multer.MulterError) {
-        defaultError.statusCode = 400
-        defaultError.message = err.message
-        defaultError.stack = err.stack
-        defaultError.errorMessages = [{
-            path: err.field || '',
-            message: err.code
         }]
     }
     console.log({
